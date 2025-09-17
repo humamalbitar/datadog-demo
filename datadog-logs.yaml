@@ -1,0 +1,17 @@
+logs:
+  - type: file
+    path: /var/log/laravel/laravel.log
+    service: datadog-demo
+    source: laravel
+    sourcecategory: laravel
+    tags:
+      - env:local
+      - version:1.0.0
+
+  - type: docker
+    service: datadog-demo
+    source: docker
+    sourcecategory: container
+    tags:
+      - env:local
+      - version:1.0.0

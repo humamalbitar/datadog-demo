@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: laravel-app
+    environment:
+      # Laravel Configuration
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=/var/www/html/database/database.sqlite
+
+      # Datadog Configuration
+      - DD_API_KEY=${DD_API_KEY}  # Datadog API key (required to send data)
+      - DD_APP_KEY=${DD_APP_KEY}  # Datadog Application key (used for API access for dashboards, queries, etc.)
+      - DD_SITE=${DD_SITE}  # Datadog site (e.g., datadoghq.com or datadoghq.eu)
+      - DD_AGENT_HOST=dd-agent  # Name of the dd-agent container to send data to
+      - DD_DOGSTATSD_HOST=dd-agent  # Host for DogStatsD (metrics service inside the agent)
+      - DD_DOGSTATSD_PORT=8125  # DogStatsD port (UDP 8125)
+      - DD_TRACE_AGENT_URL=http://dd-agent:8126  # Trace Agent URL (for APM traces)
+      - DD_SERVICE=${DD_SERVICE}  # Service name to identify this app in Datadog
+      - DD_ENV=${DD_ENV}  # Environment tag (e.g., dev, staging, prod)
+      - DD_VERSION=${DD_VERSION}  # Application version
+      - DD_TRACE_ENABLED=true  # Enable APM tracing
+      - DD_LOGS_INJECTION=true  # Inject trace IDs into logs for correlation
+      - DD_APM_ENABLED=true  # Enable APM integration
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "8000:80"
+    depends_on:
+      - dd-agent
+    restart: unless-stopped
+    networks:
+      - datadog-network
+
+  dd-agent:
+    image: gcr.io/datadoghq/agent:7
+    container_name: dd-agent
+    environment:
+      - DD_API_KEY=${DD_API_KEY}  # API key to send data to Datadog
+      - DD_SITE=us5.datadoghq.com  # Datadog site (default US)
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true  # Allow DogStatsD to receive external traffic
+      - DD_APM_ENABLED=true  # Enable APM in the agent
+      - DD_APM_NON_LOCAL_TRAFFIC=true  # Allow APM traces from non-local apps
+      - DD_LOGS_ENABLED=true  # Enable log collection
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true  # Collect logs from all containers
+      - DD_LOGS_CONFIG_USE_HTTP=true  # Send logs using HTTP
+      - DD_LOGS_CONFIG_FORCE_USE_HTTP=true  # Force HTTP only
+      - DD_LOGS_CONFIG_USE_TCP=false  # Disable TCP for logs
+      - DD_CONTAINER_EXCLUDE_LOGS=name:dd-agent  # Exclude the agent’s own logs
+      - DD_PROCESS_AGENT_ENABLED=false  # Disable process monitoring
+      - DD_SYSTEM_PROBE_ENABLED=false  # Disable system probe (network/system monitoring)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Share Docker socket (read-only) for container monitoring
+      - /proc/:/host/proc/:ro  # Mount host’s process info (read-only)
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro  # Mount host’s cgroup info (read-only)
+      - ./storage/logs:/var/log/laravel:ro  # Mount Laravel logs for collection
+      - ./datadog-logs.yaml:/etc/datadog-agent/conf.d/laravel.d/conf.yaml:ro  # Laravel-specific log config for Datadog
+      - ./datadog.yaml:/etc/datadog-agent/datadog.yaml:ro  # Main Datadog agent config
+    ports:
+      - "8125:8125/udp"  # DogStatsD
+      - "8126:8126"      # APM traces
+    restart: unless-stopped
+    networks:
+      - datadog-network
+
+networks:
+  datadog-network:
+    driver: bridge

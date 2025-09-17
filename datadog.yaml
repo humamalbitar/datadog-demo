@@ -1,0 +1,14 @@
+## Log section
+logs_enabled: true
+logs_config:
+  use_http: true
+  use_tcp: false
+  force_use_http: true
+  use_compression: true
+  compression_level: 6
+  batch_wait: 5
+  dd_url: https://http-intake.logs.us5.datadoghq.com
+  dd_port: 443
+  dev_mode_no_ssl: false
+  dev_mode_use_proto: false
+  stop_grace_period: 30
